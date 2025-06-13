@@ -1,6 +1,6 @@
 # Seam Carving
 
-A C implementation of the seam carving algorithm for content-aware image resizing. This algorithm intelligently resizes images by removing or adding seams that have the least impact on the image content.
+A C implementation of the seam carving algorithm for content-aware image resizing.
 
 ## Examples
 
