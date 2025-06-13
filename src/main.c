@@ -55,18 +55,18 @@ struct matrix_t grayscale(struct image_t m) {
     return result;
 }
 
-void sobel_filter(struct matrix_t *m) {
+void sobel_filter(struct matrix_t m) {
     static const char gradient_kernel_x[3][3] = {
         {-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
     static const char gradient_kernel_y[3][3] = {
         {-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
 
-    struct matrix_t result = matrix_create(m->width, m->height);
+    struct matrix_t result = matrix_create(m.width, m.height);
 
-    for (int i = 0; i < m->height; ++i) {
-        for (int j = 0; j < m->width; ++j) {
-            if (i == 0 || i == m->height - 1 || j == 0 || j == m->width - 1) {
-                result.data[i * m->width + j] = 0;
+    for (int i = 0; i < m.height; ++i) {
+        for (int j = 0; j < m.width; ++j) {
+            if (i == 0 || i == m.height - 1 || j == 0 || j == m.width - 1) {
+                result.data[i * m.width + j] = 0;
                 continue;
             }
 
@@ -78,11 +78,11 @@ void sobel_filter(struct matrix_t *m) {
                     int ni = i + k;
                     int nj = j + l;
 
-                    if (ni < 0 || ni >= m->height || nj < 0 || nj >= m->width) {
+                    if (ni < 0 || ni >= m.height || nj < 0 || nj >= m.width) {
                         continue;
                     }
 
-                    unsigned char pixel = m->data[ni * m->width + nj];
+                    unsigned char pixel = m.data[ni * m.width + nj];
                     gx += gradient_kernel_x[k + 1][l + 1] * pixel;
                     gy += gradient_kernel_y[k + 1][l + 1] * pixel;
                 }
@@ -103,14 +103,14 @@ void sobel_filter(struct matrix_t *m) {
         }
     }
 
-    memcpy(m->data, result.data, m->width * m->height);
+    memcpy(m.data, result.data, m.width * m.height);
     free(result.data);
 }
 
 int *find_seam(struct matrix_t m) {
-    // cost so far
+    // Cost so far
     int *cost = calloc(1, sizeof(int) * m.width * m.height);
-    // the previous row from this cell which has the minimum cost
+    // The previous row from this cell which has the minimum cost
     int *back = calloc(1, sizeof(int) * m.width * m.height);
 
     // Initialize first row
@@ -217,19 +217,24 @@ void remove_seam(struct image_t *image, struct matrix_t *m, int *seam) {
 }
 
 void usage() {
-    fprintf(stderr, "Usage: seam_carving <image_file>\n");
-    fprintf(stderr, "Example: seam_carving image.jpg\n");
+    fprintf(stderr, "Usage: seam_carving <image_file> <output_file> <ratio>\n");
+    fprintf(stderr, "Example: seam_carving image.jpg 0.5\n");
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
+    if (argc != 4) {
         usage();
         return 1;
     }
 
     char *image_file = argv[1];
     char *output_file = argv[2];
-    float ratio = 0.1f;
+    char *ratio_str = argv[3];
+    float ratio;
+    if (sscanf(ratio_str, "%f", &ratio) != 1 || ratio < 0) {
+        fprintf(stderr, "Invalid ratio: %s\n", ratio_str);
+        return 1;
+    }
 
     int width, height, channels;
     unsigned char *data = stbi_load(image_file, &width, &height, &channels, 3);
@@ -247,9 +252,9 @@ int main(int argc, char *argv[]) {
 
     // Grayscale the image
     struct matrix_t m = grayscale(image);
-    sobel_filter(&m);
+    sobel_filter(m);
 
-    for (int i = 0; i < (1 - ratio) * image.width; ++i) {
+    for (int i = 0; i < ratio * image.width; ++i) {
         int *seam = find_seam(m);
         remove_seam(&image, &m, seam);
         free(seam);
@@ -258,6 +263,7 @@ int main(int argc, char *argv[]) {
     // Export
     stbi_write_jpg(output_file, image.width, image.height, image.channels,
                    image.data, 100);
-
+    free(image.data);
+    free(m.data);
     return 0;
 }
